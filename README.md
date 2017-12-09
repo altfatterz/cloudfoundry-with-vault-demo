@@ -96,38 +96,76 @@ message:'Now, young Skywalker, you will die.'
 
 ## Running on CloudFoundry
 
+1. Expose the locally running vault via [ngrok](https://ngrok.com/)
+
+```
+ngrok http 8200
+
+Forwarding http://3db1eef2.ngrok.io -> localhost:8200
+Forwarding https://3db1eef2.ngrok.io -> localhost:8200
+```
+
+2. Verify on the web interface at `http://localhost:4040`
+
+3. Get the [Open Service Broker API](https://www.openservicebrokerapi.org/) implementation from HashiCorp:
+
 ```bash
 git clone https://github.com/hashicorp/vault-service-broker
-cd vault-service-broker
+```
 
-VAULT_ADDR=http://43cb69ee.ngrok.io
-VAULT_TOKEN=d54a633e-e573-4ff1-adbe-7c9fe8180ab0
+3. Needed to change the `DefaultServiceID` and `DefaultServiceName` in the `main.go` file
+
+4. Set the following environment variables
+
+```bash
+VAULT_ADDR=<ngrok_url>
+VAULT_TOKEN=<token>
+```
+
+The broker is configured to use basic authentication
+
+```bash
 VAULT_USERNAME=vault
 VAULT_PASSWORD=secret
+```
 
+5. Deploy the broker
+
+```bash
 cf push my-vault-broker-service -m 256M --random-route --no-start 
+```
 
+The `--no-start` makes sure it is not started after it is deployed.
+
+
+6. Configure the environment variables
+
+```bash
 cf set-env my-vault-broker-service VAULT_ADDR ${VAULT_ADDR}
 cf set-env my-vault-broker-service VAULT_TOKEN ${VAULT_TOKEN}
 cf set-env my-vault-broker-service SECURITY_USER_NAME ${VAULT_USERNAME}
 cf set-env my-vault-broker-service SECURITY_USER_PASSWORD ${VAULT_PASSWORD}
-
-cf env my-vault-broker-service
-
 ```
 
+7. Verify the configured environment variables
+
+```bash
+cf env my-vault-broker-service
+```
+
+8. Start the broker:
 
 ```bash
 cf start my-vault-broker-service
 ```
 
-Check the Ngrok Inspect UI, you will see that 
+9. Check the Ngrok Inspect UI, you will see the following request: 
 
 ```bash
 POST /v1/sys/mounts/cf/broker
 ```
  
-It created a new mount:
+it created a new mount:
  
 ```
 vault mounts
@@ -137,20 +175,24 @@ cf/broker/  generic    generic_4c6ea7ec    n/a     system       system   false  
 ...
 ``` 
 
+
+10. View the running broker:
+
 ```
 cf apps
 
 name                      requested state   instances   memory   disk   urls
-my-vault-broker-service   started           1/1         256M     1G     my-vault-broker-service-unlamed-nonporness.cfapps.io
+my-vault-broker-service   started           1/1         256M     1G     my-vault-broker-service-<name>.cfapps.io
 ``` 
  
 
+11. Get the broker url:
 
 ```bash
 VAULT_BROKER_URL=$(cf app my-vault-broker-service | grep routes: | awk '{print $2}')
 ```
 
-Get the catalog information:
+12. Get the catalog information:
 
 ```bash
 curl ${VAULT_USERNAME}:${VAULT_PASSWORD}@${VAULT_BROKER_URL}/v2/catalog | jq
@@ -181,6 +223,8 @@ curl ${VAULT_USERNAME}:${VAULT_PASSWORD}@${VAULT_BROKER_URL}/v2/catalog | jq
 }
 ```
 
+13. Create a service broker:
+
 ```bash
 cf service-brokers
 cf create-service-broker my-vault-service-broker "${VAULT_USERNAME}" "${VAULT_PASSWORD}" "https://${VAULT_BROKER_URL}" --space-scoped
@@ -188,21 +232,13 @@ cf create-service-broker my-vault-service-broker "${VAULT_USERNAME}" "${VAULT_PA
 
 You need to specify the `--space-scoped` and the `service ids` and `service name` must be unique. See `https://docs.cloudfoundry.org/services/managing-service-brokers.html`
 
-
-```
-cf marketplace
-cf marketplace -s my-hashicorp-vault
-``` 
-
-Note the service name is `my-hashicorp-vault`.
-
-Create a service instance:
+14. Create a service instance:
 
 ```bash
 cf create-service my-hashicorp-vault shared my-vault-service
 ``` 
 
-Check result:
+15. Verify the result:
 
 ```bash
 cf services
@@ -211,7 +247,7 @@ name               service              plan     bound apps   last operation
 my-vault-service   my-hashicorp-vault   shared                create succeeded
 ```
 
-Check the HTTP requests sent to Ngrok and you will see couple of vault mount being created:
+16. Check the HTTP requests sent to Ngrok and you will see couple of vault mounts being created:
 
 ```bash
 PUT /v1/cf/broker/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347              204 No Content
@@ -224,14 +260,23 @@ PUT /v1/auth/token/roles/cf-41b2d6df-f7d1-453e-98e5-9a0bd1b2c347    204 No Conte
 PUT /v1/sys/policy/cf-41b2d6df-f7d1-453e-98e5-9a0bd1b2c347          204 No Content	
 ```
 
-Create a service key:
+When  a new service instance is provisioned using the broker, the following paths will be mounted:
+
+Mount the generic backend at /cf/<organization_id>/secret/
+Mount the generic backend at /cf/<space_id>/secret/
+Mount the generic backend at /cf/<instance_id>/secret/
+Mount the transit backend at /cf/<instance_id>/transit/
+
+A policy named `cf-<instance_id>` is also created for this service instance which grants read-only access to `cf/<organization_id>/*`, read-write access to `cf/<space_id>/*` and full access to `cf/<instance_id>/*`
+
+17. Create a service key:
 
 ```bash
 cf create-service-key my-vault-service my-vault-service-key
 cf service-keys my-vault-service
 ```
 
-This created more activity behind the scene
+18. Verify the received requests for Vault using the Ngrok Inspect UI
 
 ```bash
 PUT  /v1/auth/token/renew-self                                                               200 OK
@@ -240,8 +285,7 @@ PUT  /v1/cf/broker/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/a4a878ba-60ef-4476-9862-
 POST /v1/auth/token/create/cf-41b2d6df-f7d1-453e-98e5-9a0bd1b2c347                           200 OK
 ```
 
-
-Retrieve credentials for this instance:
+19. Retrieve credentials for this instance:
 
 ```bash
 cf service-key my-vault-service my-vault-service-key
@@ -265,37 +309,36 @@ cf service-key my-vault-service my-vault-service-key
 }
 ```
 
+In the application, we can leverage these services using the following configuration in the bootstrap.yml file. Note that we are only able to access the exposed backends.
+`
 ```bash
-cf push --random-route --no-start 
+spring:
+  application:
+    name: vault-demo
+  cloud:
+    vault:
+      token: ${vcap.services.my-vault-service.credentials.auth.token}
+      uri: ${vcap.services.my-vault-service.credentials.address:http://localhost:8200}
+      generic:
+        backend: ${vcap.services.my-vault-service.credentials.backends.generic:secret}
 ```
 
-
-Inside vault the followings were created:
+After redeploying with the above changes, let's write the secret into the vault to the given generic backend.
 
 ```bash
-2017/11/06 21:53:39.209025 [INFO ] core: successful mount: path=cf/broker/ type=generic
+vault write cf/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/secret/vault-demo message='Vault Rocks'
+http post http://vault-demo-deleterious-geum.cfapps.io/application/refresh
 ```
 
-```bash
-2017/11/06 22:16:39.967360 [INFO ] core: successful mount: path=cf/9a491a25-b629-472a-bd65-137ce8067a8d/secret/ type=generic
-2017/11/06 22:16:39.971579 [INFO ] core: successful mount: path=cf/5ba6ae64-640e-418b-8c0c-7ec4e9b5ace5/secret/ type=generic
-2017/11/06 22:16:39.974906 [INFO ] core: successful mount: path=cf/ae0bc448-b371-4d00-8837-49fc4fc736c7/secret/ type=generic
-2017/11/06 22:16:39.978739 [INFO ] core: successful mount: path=cf/ae0bc448-b371-4d00-8837-49fc4fc736c7/transit/ type=transit
-```
-
+We can verify that the secret is retrieved via
 
 ```bash
-Mount the generic backend at /cf/<organization_id>/secret/
-Mount the generic backend at /cf/<space_id>/secret/
-Mount the generic backend at /cf/<instance_id>/secret/
-Mount the transit backend at /cf/<instance_id>/transit/
+http get http://vault-demo-deleterious-geum.cfapps.io
 ```
- 
-```bash
-vault write cf/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/secret/my-vault-demo password=Work 
-http post http://my-vault-demo-deleterious-geum.cfapps.io/application/refresh
-``` 
- 
+
+--
+
+
 How can I connect apps running in PCF Dev to services running on my workstation?
 
 Note: Using localhost inside of app containers will not refer to your workstation.
