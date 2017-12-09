@@ -1,8 +1,10 @@
 server:
   port: 8080
 
-endpoints:
-  env:
-    enabled: true
-  refresh:
-    enabled: true
+management:
+  endpoints:
+    web:
+      expose: ["health", "info", "refresh"]
+  endpoint:
+    health:
+      show-details: true
