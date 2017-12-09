@@ -1,65 +1,100 @@
+## Learning HashiCorp Vault
 
-Starting vault:
+#### Running locally
+
+1. Start vault:
 
 ```bash
 vault server -config inmemory.conf
 ```
 
-After this you need to initialize it:
+2. In another terminal set the VAULT_ADDR before initializing Vault:
 
 ```bash
 export VAULT_ADDR=http://127.0.0.1:8200
-```
+```   
+
+2. Initialize vault:
 
 ```bash
 vault init -key-shares=5 -key-threshold=2
 ```
 
-Copy the `Initial Root Token` we will still need it.
+3. Copy the `Initial Root Token` we will still need it.
 
-and then useal it:
-
-```
-vault unseal <key>
-vault unseal <key>
+```bash
+export VAULT_TOKEN=<token>
 ```
 
 Vault requires an authenticated access to proceed from here on. 
 Vault uses tokens as generic authentication on its transport level.
 
+4. Vault is in `sealed` mode, let's unseal it:
+
+```
+vault unseal <key>
+vault unseal <key>
+```
+
+5. Verify that Vault is in `unsealed` mode:
+
+```bash
+vault status | grep Sealed
+
+Sealed: false
+```
+
+6. Write a secret into the `secret` backend:
+
+```bash
+vault write secret/vault-demo message='I find your lack of faith disturbing.'
+```
+
+7. Start the application in another terminal 
+
+```bash
+export VAULT_ADDR=http://127.0.0.1:8200
 export VAULT_TOKEN=<token>
-
-```bash
-vault read secret/demo
-No value found at secret/demo
+java -jar target/vault-demo-0.0.1-SNAPSHOT.jar --spring.cloud.vault.token=`echo $VAULT_TOKEN`
 ```
 
-Start the application and request the GET localhost:8080
+8. Request the GET localhost:8080
 
 ```bash
 http :8080
 
-Password:'n/a'
+message:I find your lack of faith disturbing.
 ```
+
+9. Update the secret inside Vault
 
 ```bash
-export VAULT_ADDR='http://127.0.0.1:8200'
-vault write secret/demo password=secret
+vault write secret/vault-demo message='Now, young Skywalker, you will die.'
 ```
 
-Refresh the application 
-
-```bash
-http post :8080/refresh
-```
-
-Request again:
+10. Verify that the application still has the old secret
 
 ```bash
 http :8080
 
-Password:secret
+Password:s3cr3t
 ```
+
+11. Send refresh command to the application
+
+```bash
+http post :8080/application/refresh
+```
+
+12. Verify that the application knows about the latest secret
+
+```bash
+http :8080
+
+message:'Now, young Skywalker, you will die.'
+```
+
+## Running on CloudFoundry
 
 ```bash
 git clone https://github.com/hashicorp/vault-service-broker
@@ -247,6 +282,7 @@ Inside vault the followings were created:
 2017/11/06 22:16:39.974906 [INFO ] core: successful mount: path=cf/ae0bc448-b371-4d00-8837-49fc4fc736c7/secret/ type=generic
 2017/11/06 22:16:39.978739 [INFO ] core: successful mount: path=cf/ae0bc448-b371-4d00-8837-49fc4fc736c7/transit/ type=transit
 ```
+
 
 ```bash
 Mount the generic backend at /cf/<organization_id>/secret/

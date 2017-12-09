@@ -1,11 +1,10 @@
 spring:
   application:
-    name: my-vault-demo
+    name: vault-demo
 
   cloud:
     vault:
-      enabled: false
-      token: ${vcap.services.my-vault-service.credentials.auth.token:d54a633e-e573-4ff1-adbe-7c9fe8180ab0}
+      token: ${vcap.services.my-vault-service.credentials.auth.token}
       uri: ${vcap.services.my-vault-service.credentials.address:http://localhost:8200}
       generic:
         backend: ${vcap.services.my-vault-service.credentials.backends.generic:secret}
