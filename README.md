@@ -96,7 +96,30 @@ message:'Now, young Skywalker, you will die.'
 
 ## Running on CloudFoundry
 
-1. Expose the locally running vault via [ngrok](https://ngrok.com/)
+1. Using [Swisscom's CloudFoundry environment](developer.swisscom.com)
+
+```bash
+cf login -a https://api.lyra-836.appcloud.swisscom.com -u <login>
+cf target -o mimacom -s Development
+```
+
+2. Get the [Open Service Broker API](https://www.openservicebrokerapi.org/) implementation from HashiCorp:
+
+```bash
+git clone https://github.com/hashicorp/vault-service-broker
+```
+
+3. Needed to change the `DefaultServiceID` and `DefaultServiceName` in the `main.go` file
+
+4. Deploy the broker
+   
+```bash
+cf push my-vault-broker-service -m 256M --random-route --no-start 
+```
+   
+The `--no-start` makes sure it is not started after it is deployed.
+
+5. Expose the locally running vault via [ngrok](https://ngrok.com/)
 
 ```
 ngrok http 8200
@@ -105,17 +128,9 @@ Forwarding http://3db1eef2.ngrok.io -> localhost:8200
 Forwarding https://3db1eef2.ngrok.io -> localhost:8200
 ```
 
-2. Verify on the web interface at `http://localhost:4040`
+6. Verify on the web interface at `http://localhost:4040`
 
-3. Get the [Open Service Broker API](https://www.openservicebrokerapi.org/) implementation from HashiCorp:
-
-```bash
-git clone https://github.com/hashicorp/vault-service-broker
-```
-
-3. Needed to change the `DefaultServiceID` and `DefaultServiceName` in the `main.go` file
-
-4. Set the following environment variables
+7. Set the following environment variables
 
 ```bash
 VAULT_ADDR=<ngrok_url>
@@ -129,16 +144,7 @@ VAULT_USERNAME=vault
 VAULT_PASSWORD=secret
 ```
 
-5. Deploy the broker to CloudFoundry
-
-```bash
-cf push my-vault-broker-service -m 256M --random-route --no-start 
-```
-
-The `--no-start` makes sure it is not started after it is deployed.
-
-
-6. Configure the environment variables
+8. Configure the environment variables
 
 ```bash
 cf set-env my-vault-broker-service VAULT_ADDR ${VAULT_ADDR}
@@ -147,25 +153,34 @@ cf set-env my-vault-broker-service SECURITY_USER_NAME ${VAULT_USERNAME}
 cf set-env my-vault-broker-service SECURITY_USER_PASSWORD ${VAULT_PASSWORD}
 ```
 
-7. Verify the configured environment variables
+9. Verify the configured environment variables 
 
 ```bash
 cf env my-vault-broker-service
 ```
 
-8. Start the broker:
+10. Start the broker:
 
 ```bash
 cf start my-vault-broker-service
 ```
 
-9. Check the Ngrok Inspect UI, you will see the following request: 
+11. Check the logs to verify the succesfull start
 
 ```bash
+cf logs --recent my-vault-broker-service
+```
+
+12. Verify in the Ngrok Inspect UI the activity requests sent to the exposed Vault broker
+
+```bash
+GET /v1/cf/broker
 POST /v1/sys/mounts/cf/broker
+PUT /v1/auth/token/renew-self
+GET /v1/sys/mounts
 ```
  
-it created a new mount:
+13. The service broker created a new mount
  
 ```
 vault mounts
@@ -175,24 +190,22 @@ cf/broker/  generic    generic_4c6ea7ec    n/a     system       system   false  
 ...
 ``` 
 
-
-10. View the running broker:
+14. View the running broker:
 
 ```
 cf apps
 
 name                      requested state   instances   memory   disk   urls
-my-vault-broker-service   started           1/1         256M     1G     my-vault-broker-service-<name>.cfapps.io
-``` 
- 
+my-vault-broker-service   started           1/1         256M     1G     my-vault-broker-service-meroblastic-econ.scapp.io
+```  
 
-11. Get the broker url:
+15. Get the broker url:
 
 ```bash
 VAULT_BROKER_URL=$(cf app my-vault-broker-service | grep routes: | awk '{print $2}')
 ```
 
-12. Get the catalog information:
+16. Get the catalog information:
 
 ```bash
 curl ${VAULT_USERNAME}:${VAULT_PASSWORD}@${VAULT_BROKER_URL}/v2/catalog | jq
@@ -223,7 +236,7 @@ curl ${VAULT_USERNAME}:${VAULT_PASSWORD}@${VAULT_BROKER_URL}/v2/catalog | jq
 }
 ```
 
-13. Create a service broker:
+17. Create a service broker:
 
 ```bash
 cf service-brokers
@@ -232,13 +245,13 @@ cf create-service-broker my-vault-service-broker "${VAULT_USERNAME}" "${VAULT_PA
 
 You need to specify the `--space-scoped` and the `service ids` and `service name` must be unique. See `https://docs.cloudfoundry.org/services/managing-service-brokers.html`
 
-14. Create a service instance:
+18. Create a service instance:
 
 ```bash
 cf create-service my-hashicorp-vault shared my-vault-service
 ``` 
 
-15. Verify the result:
+19. Verify the result:
 
 ```bash
 cf services
@@ -247,17 +260,17 @@ name               service              plan     bound apps   last operation
 my-vault-service   my-hashicorp-vault   shared                create succeeded
 ```
 
-16. Check the HTTP requests sent to Ngrok and you will see couple of vault mounts being created:
+20. Verify the HTTP requests sent the exposed Vault service using the Ngrok Inspect UI:
 
 ```bash
-PUT /v1/cf/broker/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347              204 No Content
-POST /v1/sys/mounts/cf/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/transit 204 No Content
-POST /v1/sys/mounts/cf/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/secret  204 No Content
-POST /v1/sys/mounts/cf/5f7b0811-d90a-47f2-a194-951eb324f867/secret  204 No Content
-POST /v1/sys/mounts/cf/be7eedf8-c813-49e1-98f8-2fc19370ee4d/secret  204 No Content
-GET /v1/sys/mounts                                                  200 Ok
-PUT /v1/auth/token/roles/cf-41b2d6df-f7d1-453e-98e5-9a0bd1b2c347    204 No Content
-PUT /v1/sys/policy/cf-41b2d6df-f7d1-453e-98e5-9a0bd1b2c347          204 No Content	
+PUT /v1/cf/broker/b6f97d4c-528e-433c-869a-e396069d0b94
+POST /v1/sys/mounts/cf/b6f97d4c-528e-433c-869a-e396069d0b94/secret
+POST /v1/sys/mounts/cf/b6f97d4c-528e-433c-869a-e396069d0b94/transit
+POST /v1/sys/mounts/cf/cf4e1f52-79a1-42f1-9885-35484fbf0cd6/secret
+POST /v1/sys/mounts/cf/dfc8434a-2ec5-40b1-bd67-86871b5026c0/secret
+GET /v1/sys/mounts
+PUT /v1/auth/token/roles/cf-b6f97d4c-528e-433c-869a-e396069d0b94
+PUT /v1/sys/policy/cf-b6f97d4c-528e-433c-869a-e396069d0b94
 ```
 
 When  a new service instance is provisioned using the broker, the following paths will be mounted:
@@ -269,7 +282,7 @@ Mount the transit backend at /cf/<instance_id>/transit/
 
 A policy named `cf-<instance_id>` is also created for this service instance which grants read-only access to `cf/<organization_id>/*`, read-write access to `cf/<space_id>/*` and full access to `cf/<instance_id>/*`
 
-17. Create a service key:
+21. Create a service key: (This failed in Swisscom's CloudFoundry)
 
 ```bash
 cf create-service-key my-vault-service my-vault-service-key
