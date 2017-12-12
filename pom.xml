@@ -4,11 +4,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example</groupId>
-    <artifactId>vault-demo</artifactId>
+    <artifactId>cloudfoundry-with-vault-demo</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>vault-demo</name>
+    <name>cloudfoundry-with-vault-demo</name>
     <description>Demo project for Spring Boot</description>
 
     <parent>

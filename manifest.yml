@@ -1,6 +1,6 @@
 ---
 applications:
-- name: my-vault-demo
+- name: vault-demo
   memory: 1G
-  path: target/cloudfoundry-demo-0.0.1-SNAPSHOT.jar
+  path: target/cloudfoundry-with-vault-demo-0.0.1-SNAPSHOT.jar
   buildpack: java_buildpack

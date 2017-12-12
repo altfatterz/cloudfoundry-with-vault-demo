@@ -1,4 +1,4 @@
-## Learning HashiCorp Vault
+## Using HashiCorp Vault in CloudFoundry  
 
 #### Running locally
 
@@ -55,7 +55,7 @@ vault write secret/vault-demo message='I find your lack of faith disturbing.'
 ```bash
 export VAULT_ADDR=http://127.0.0.1:8200
 export VAULT_TOKEN=<token>
-java -jar target/vault-demo-0.0.1-SNAPSHOT.jar --spring.cloud.vault.token=`echo $VAULT_TOKEN`
+java -jar target/cloudfoundry-with-vault-demo-0.0.1-SNAPSHOT.jar --spring.cloud.vault.token=`echo $VAULT_TOKEN`
 ```
 
 8. Request the GET localhost:8080
@@ -77,13 +77,13 @@ vault write secret/vault-demo message='Now, young Skywalker, you will die.'
 ```bash
 http :8080
 
-Password:s3cr3t
+message:I find your lack of faith disturbing.
 ```
 
 11. Send refresh command to the application
 
 ```bash
-http post :8080/application/refresh
+http post :8080/actuator/refresh
 ```
 
 12. Verify that the application knows about the latest secret
@@ -129,7 +129,7 @@ VAULT_USERNAME=vault
 VAULT_PASSWORD=secret
 ```
 
-5. Deploy the broker
+5. Deploy the broker to CloudFoundry
 
 ```bash
 cf push my-vault-broker-service -m 256M --random-route --no-start 
