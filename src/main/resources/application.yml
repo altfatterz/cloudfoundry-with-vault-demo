@@ -4,7 +4,7 @@ server:
 management:
   endpoints:
     web:
-      expose: ["health", "info", "refresh"]
+      expose: ["health", "info", "refresh", "env"]
   endpoint:
     health:
       show-details: true

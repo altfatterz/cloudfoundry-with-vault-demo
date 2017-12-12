@@ -96,11 +96,10 @@ message:'Now, young Skywalker, you will die.'
 
 ## Running on CloudFoundry
 
-1. Using [Swisscom's CloudFoundry environment](developer.swisscom.com)
+1. Using [Pivolt CloudFoundry environment](https://run.pivotal.io/)
 
 ```bash
-cf login -a https://api.lyra-836.appcloud.swisscom.com -u <login>
-cf target -o mimacom -s Development
+cf login -a api.run.pivotal.io
 ```
 
 2. Get the [Open Service Broker API](https://www.openservicebrokerapi.org/) implementation from HashiCorp:
@@ -174,10 +173,10 @@ cf logs --recent my-vault-broker-service
 12. Verify in the Ngrok Inspect UI the activity requests sent to the exposed Vault broker
 
 ```bash
-GET /v1/cf/broker
-POST /v1/sys/mounts/cf/broker
-PUT /v1/auth/token/renew-self
 GET /v1/sys/mounts
+PUT /v1/auth/token/renew-self
+POST /v1/sys/mounts/cf/broker
+GET /v1/cf/broker
 ```
  
 13. The service broker created a new mount
@@ -196,7 +195,7 @@ cf/broker/  generic    generic_4c6ea7ec    n/a     system       system   false  
 cf apps
 
 name                      requested state   instances   memory   disk   urls
-my-vault-broker-service   started           1/1         256M     1G     my-vault-broker-service-meroblastic-econ.scapp.io
+my-vault-broker-service   started           1/1         256M     1G     vault-demo-twiggiest-sennit.cfapps.io
 ```  
 
 15. Get the broker url:
@@ -263,14 +262,14 @@ my-vault-service   my-hashicorp-vault   shared                create succeeded
 20. Verify the HTTP requests sent the exposed Vault service using the Ngrok Inspect UI:
 
 ```bash
-PUT /v1/cf/broker/b6f97d4c-528e-433c-869a-e396069d0b94
-POST /v1/sys/mounts/cf/b6f97d4c-528e-433c-869a-e396069d0b94/secret
-POST /v1/sys/mounts/cf/b6f97d4c-528e-433c-869a-e396069d0b94/transit
-POST /v1/sys/mounts/cf/cf4e1f52-79a1-42f1-9885-35484fbf0cd6/secret
-POST /v1/sys/mounts/cf/dfc8434a-2ec5-40b1-bd67-86871b5026c0/secret
+POST /v1/sys/mounts/cf/0b24f466-9a54-4215-852e-2bcfab428a82/secret
+PUT /v1/cf/broker/0b24f466-9a54-4215-852e-2bcfab428a82
 GET /v1/sys/mounts
-PUT /v1/auth/token/roles/cf-b6f97d4c-528e-433c-869a-e396069d0b94
-PUT /v1/sys/policy/cf-b6f97d4c-528e-433c-869a-e396069d0b94
+POST /v1/sys/mounts/cf/0b24f466-9a54-4215-852e-2bcfab428a82/transit
+POST /v1/sys/mounts/cf/be7eedf8-c813-49e1-98f8-2fc19370ee4d/secret
+POST /v1/sys/mounts/cf/5f7b0811-d90a-47f2-a194-951eb324f867/secret
+PUT /v1/sys/policy/cf-0b24f466-9a54-4215-852e-2bcfab428a82
+PUT /v1/auth/token/roles/cf-0b24f466-9a54-4215-852e-2bcfab428a82
 ```
 
 When  a new service instance is provisioned using the broker, the following paths will be mounted:
@@ -292,10 +291,10 @@ cf service-keys my-vault-service
 18. Verify the received requests for Vault using the Ngrok Inspect UI
 
 ```bash
-PUT  /v1/auth/token/renew-self                                                               200 OK
-PUT  /v1/auth/token/renew-self                                                               200 OK
-PUT  /v1/cf/broker/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/a4a878ba-60ef-4476-9862-b78b0bb514d3 204 No Content
-POST /v1/auth/token/create/cf-41b2d6df-f7d1-453e-98e5-9a0bd1b2c347                           200 OK
+PUT /v1/auth/token/renew-self
+PUT /v1/auth/token/renew-self
+PUT /v1/cf/broker/0b24f466-9a54-4215-852e-2bcfab428a82/5cf104c9-4515-40f3-94de-a63ab77cb84b
+POST /v1/auth/token/create/cf-0b24f466-9a54-4215-852e-2bcfab428a82
 ```
 
 19. Retrieve credentials for this instance:
@@ -306,14 +305,14 @@ cf service-key my-vault-service my-vault-service-key
 
 ```json
 {
- "address": "http://43cb69ee.ngrok.io/",
+ "address": "https://1f81e0d3.ngrok.io/",
  "auth": {
-  "accessor": "d994b172-c116-1d56-39c4-139f9615abb4",
-  "token": "e340fdbe-373a-0b24-0a9c-806316b379a6"
+  "accessor": "3705e5b2-c0bb-6398-ecff-e05a9e6a7b28",
+  "token": "d5971c27-cf77-6ff0-f5c9-430fdfe07066"
  },
  "backends": {
-  "generic": "cf/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/secret",
-  "transit": "cf/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/transit"
+  "generic": "cf/0b24f466-9a54-4215-852e-2bcfab428a82/secret",
+  "transit": "cf/0b24f466-9a54-4215-852e-2bcfab428a82/transit"
  },
  "backends_shared": {
   "organization": "cf/be7eedf8-c813-49e1-98f8-2fc19370ee4d/secret",
@@ -322,7 +321,14 @@ cf service-key my-vault-service my-vault-service-key
 }
 ```
 
-In the application, we can leverage these services using the following configuration in the bootstrap.yml file. Note that we are only able to access the exposed backends.
+20. Deploy the Vault client application
+
+```bash
+cf push --random-route --no-start 
+```
+
+In the application, we can leverage these services using the following configuration in the bootstrap.yml file. 
+Note that we are only able to access the exposed backends.
 `
 ```bash
 spring:
@@ -336,37 +342,40 @@ spring:
         backend: ${vcap.services.my-vault-service.credentials.backends.generic:secret}
 ```
 
-After redeploying with the above changes, let's write the secret into the vault to the given generic backend.
+21. Bind the `my-vault-service` to the `vault-demo` application
 
 ```bash
-vault write cf/41b2d6df-f7d1-453e-98e5-9a0bd1b2c347/secret/vault-demo message='Vault Rocks'
-http post http://vault-demo-deleterious-geum.cfapps.io/application/refresh
+cf bind-service vault-demo my-vault-service
 ```
 
-We can verify that the secret is retrieved via
+22. Start the Vault client application
 
 ```bash
-http get http://vault-demo-deleterious-geum.cfapps.io
+cf start vault-demo
 ```
 
---
+23. Verif that the application has started succesfully:
 
+```bash
+cf logs --recent vault-demo
+```
 
-How can I connect apps running in PCF Dev to services running on my workstation?
+24. Let's write a secret into the Vault to the given generic backend and send a refresh command.
 
-Note: Using localhost inside of app containers will not refer to your workstation.
+```bash
+vault write cf/0b24f466-9a54-4215-852e-2bcfab428a82/secret/vault-demo message='Vault Rocks'
+http post https://vault-demo-twiggiest-sennit.cfapps.io/actuator/refresh
+```
 
-PCF Dev provides a special hostname for addressing the host from inside of application containers. 
-If the PCF Dev system domain is local.pcfdev.io, then the host will be routable at host.pcfdev.io.
-Services running on the host must be listening on all network interfaces (not just localhost) for apps to access them.
+25. We can verify that the secret is retrieved via
 
- 
-Look into:
-Spring Cloud project for creating Cloud Foundry service brokers
-`https://github.com/spring-cloud/spring-cloud-cloudfoundry-service-broker`
+```bash
+http get http://vault-demo-twiggiest-sennit.cfapps.io
 
- 
- 
-Resources:
+message:Vault Rocks
+```
+
+## Resources:
+[Spring Cloud project for creating Cloud Foundry service brokers](https://github.com/spring-cloud/spring-cloud-cloudfoundry-service-broker)
 [https://spring.io/blog/2016/06/24/managing-secrets-with-vault](https://spring.io/blog/2016/06/24/managing-secrets-with-vault)
 [https://spring.io/blog/2015/04/27/binding-to-data-services-with-spring-boot-in-cloud-foundry](https://spring.io/blog/2015/04/27/binding-to-data-services-with-spring-boot-in-cloud-foundry)
